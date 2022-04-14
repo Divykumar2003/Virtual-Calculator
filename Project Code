@@ -1,0 +1,85 @@
+import cv2
+from cvzone.HandTrackingModule import HandDetector
+
+
+class Button:
+    def __init__(self, pos, width, height, value):
+        self.pos = pos
+        self.width = width
+        self.height = height
+        self.value = value
+
+    def draw(self, img):
+        cv2.rectangle(img, self.pos, (self.pos[0] + self.width, self.pos[1] + self.height), (225, 225, 225), cv2.FILLED)
+        cv2.rectangle(img, self.pos, (self.pos[0] + self.width, self.pos[1] + self.height), (50, 50, 50), 3)
+        cv2.putText(img, self.value, (self.pos[0] + 30, self.pos[1] + 40), cv2.FONT_HERSHEY_PLAIN, 2, (50, 50, 50), 2)
+
+    def click(self, x, y):
+        if self.pos[0] < x < self.pos[0] + self.width and self.pos[1] < y < self.pos[1] + self.height:
+            cv2.rectangle(img, self.pos, (self.pos[0] + self.width, self.pos[1] + self.height), (180, 180, 180),
+                          cv2.FILLED)
+            cv2.rectangle(img, self.pos, (self.pos[0] + self.width, self.pos[1] + self.height), (50, 50, 50), 3)
+            cv2.putText(img, self.value, (self.pos[0] + 20, self.pos[1] + 52), cv2.FONT_HERSHEY_PLAIN, 4, (0, 0, 0),
+                        4)
+            return True
+        else:
+            return False
+
+
+cap = cv2.VideoCapture(0)
+detector = HandDetector(detectionCon=0.5, maxHands=2)
+
+buttonListValues = [['7', '8', '9', '*'],
+                    ['4', '5', '6', '-'],
+                    ['1', '2', '3', '+'],
+                    ['0', '/', '.', '=']]
+
+buttonList = []
+equation = ''
+delay = 0
+for x in range(4):
+    for y in range(4):
+        xpos = x * 80 + 300
+        ypos = y * 60 + 100
+        buttonList.append(Button((xpos, ypos), 80, 60, buttonListValues[y][x]))
+
+while True:
+
+    success, img = cap.read()
+    img = cv2.flip(img, 1)
+    hands, img = detector.findHands(img)
+
+    cv2.rectangle(img, (300, 40), (300 + 320, 40 + 60), (225, 225, 225), cv2.FILLED)
+    cv2.rectangle(img, (300, 40), (300 + 320, 40 + 60), (50, 50, 50), 3)
+
+    for button in buttonList:
+        button.draw(img)
+
+    if hands:
+        lmList = hands[0]['lmList']
+        length, _, img = detector.findDistance(lmList[8], lmList[12], img)
+        # print(length)
+
+        x, y = lmList[8]
+        if length < 20:
+            for i, button in enumerate(buttonList):
+                if button.click(x, y) and delay == 0:
+                    myvalue = buttonListValues[int(i % 4)][int(i / 4)]
+                    if myvalue == '=':
+                        equation = str(eval(equation))
+                    else:
+                        equation += myvalue
+                    delay = 1
+    if delay != 0:
+        delay += 1
+        if delay > 10:
+            delay = 0
+
+    cv2.putText(img, equation, (280 + 30, 45 + 40), cv2.FONT_HERSHEY_PLAIN, 2, (0, 0, 0), 2)
+
+    img = cv2.resize(img, (1280, 720))
+    cv2.imshow("IMAGE", img)
+
+    k = cv2.waitKey(1)
+    if k == ord("c"):
+        equation = ''
